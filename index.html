@@ -357,6 +357,21 @@ td{overflow-wrap:anywhere}
  .video{padding:12px;gap:14px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}.rv{opacity:1;transform:none}}
+/* ===== performance ===== */
+html{scroll-behavior:auto}
+.badge,.hs,.tab,.mo{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+.blob{filter:none!important;animation:none!important;opacity:.45}
+.blob.a{background:radial-gradient(circle,#ff6670,transparent 70%)}
+.blob.b{background:radial-gradient(circle,rgba(255,255,255,.5),transparent 70%)}
+.blob.c{background:radial-gradient(circle,#ff2d3a,transparent 70%)}
+.btn{animation:none!important}
+.btn::after{display:none}
+.panel{scroll-margin-top:12px}
+@media (max-width:760px){
+  #spark{display:none}
+  .scene svg *,.pbanner svg *,.s5,.ticker div{animation:none!important}
+  .rv{opacity:1;transform:none;transition:none}
+}
 </style>
 </head>
 <body>
@@ -735,7 +750,7 @@ function showTab(t){
     $("#tab-"+k).setAttribute("aria-selected",String(k===t));
   });
 }
-document.addEventListener("click",function(ev){var b=ev.target.closest(".tab");if(!b)return;var t=b.dataset.tab,open=!$("#pg-"+t).hidden;showTab(open?"":t);if(!open)setTimeout(function(){$("#pg-"+t).scrollIntoView({behavior:"smooth",block:"start"})},50)});if(/^#(red|disp)$/.test(location.hash))showTab(location.hash.slice(1));
+document.addEventListener("click",function(ev){var b=ev.target.closest(".tab");if(!b)return;var t=b.dataset.tab;showTab(t);$("#pg-"+t).scrollIntoView({block:"start"})});if(/^#(red|disp)$/.test(location.hash))showTab(location.hash.slice(1));
 
 /* ---------- server calls ---------- */
 var busy=0,photos={};
@@ -746,9 +761,10 @@ async function api(body){
   if(!j.ok)throw new Error(j.error||"The flow reported an error.");
   return j;
 }
+var sig="";
 async function pull(){
-  if(!API_URL||busy>0)return;
-  try{var j=await api({action:"list"});items=j.redtags||[];disp=j.disposal||[];render();drender()}
+  if(!API_URL||busy>0||document.hidden)return;
+  try{var j=await api({action:"list"});var s=JSON.stringify([j.redtags,j.disposal]);if(s===sig)return;sig=s;items=j.redtags||[];disp=j.disposal||[];render();drender()}
   catch(e){try{console.error(e)}catch(x){}var m="Data could not be loaded right now. Please refresh the page in a moment.";msg(m);dmsg(m)}
 }
 
@@ -879,7 +895,7 @@ $("#f").addEventListener("submit",async function(ev){
 });
 $("#ph").addEventListener("change",async function(){var f=this.files[0];if(!f){clearPhoto();return}try{photoData=await shrink(f);$("#phv").src=photoData;$("#phv").hidden=false}catch(e){clearPhoto();msg(e.message)}});
 $("#rst").addEventListener("click",function(){setTimeout(function(){clearPhoto();$("#date").value=today();msg("")},0)});
-$("#q").addEventListener("input",render);
+var qt;$("#q").addEventListener("input",function(){clearTimeout(qt);qt=setTimeout(render,200)});
 $("#df").addEventListener("change",render);
 $("#chips").addEventListener("click",function(ev){var b=ev.target.closest(".chip");if(!b)return;var t=+b.dataset.t;typeF=(t===typeF)?-1:t;render()});
 $("#tb").addEventListener("click",async function(ev){
@@ -904,7 +920,7 @@ $("#df2").addEventListener("submit",async function(ev){
   }catch(e){lastD="";fx(sb,"reset");dfail(e)}
 });
 $("#drst").addEventListener("click",function(){setTimeout(function(){dmsg("");setSr()},0)});
-$("#dq").addEventListener("input",drender);
+var dqt;$("#dq").addEventListener("input",function(){clearTimeout(dqt);dqt=setTimeout(drender,200)});
 $("#dcf").addEventListener("change",drender);
 $("#dcsv").addEventListener("click",downloadCsv);
 
@@ -983,13 +999,11 @@ function bump(sel,n,suf){var el=$(sel),from=+el.dataset.v||0;el.dataset.v=n;if(f
     P.forEach(function(s,i){
       s.y-=s.v;s.x+=s.dx+Math.sin(s.p+=.025)*.35;
       if(s.y<-10)P[i]=mk(false);
-      var g=cx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r*4);
-      g.addColorStop(0,"rgba("+s.c+","+s.a+")");g.addColorStop(1,"rgba("+s.c+",0)");
-      cx.fillStyle=g;cx.beginPath();cx.arc(s.x,s.y,s.r*4,0,6.28);cx.fill();
+      cx.fillStyle="rgba("+s.c+","+s.a+")";cx.beginPath();cx.arc(s.x,s.y,s.r*1.6,0,6.28);cx.fill();
     });
     if(!still)requestAnimationFrame(loop);
   }
-  size();for(var i=0;i<70;i++)P.push(mk(true));
+  size();for(var i=0;i<24;i++)P.push(mk(true));
   window.addEventListener("resize",size);
   if(still){loop()}else requestAnimationFrame(loop);
 })();
