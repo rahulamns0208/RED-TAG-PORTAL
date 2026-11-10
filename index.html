@@ -368,6 +368,7 @@ html{scroll-behavior:auto}
 .btn{animation:none!important}
 .btn::after{display:none}
 .panel{scroll-margin-top:12px}
+.hero.off *{animation-play-state:paused!important}
 </style>
 </head>
 <body>
@@ -501,6 +502,7 @@ html{scroll-behavior:auto}
             <tbody id="tb"></tbody>
           </table>
           <div class="empty" id="empty" hidden></div>
+          <div class="empty" id="more" hidden><button type="button" class="ghost" id="moreb"></button></div>
         </div>
         <p class="note">Tap any tag to see its complete details. Keep the physical red tag on the item until the action is completed.</p>
       </section>
@@ -570,6 +572,7 @@ html{scroll-behavior:auto}
             <tbody id="dtb"></tbody>
           </table>
           <div class="empty" id="dempty" hidden></div>
+          <div class="empty" id="dmore" hidden><button type="button" class="ghost" id="dmoreb"></button></div>
         </div>
       </section>
     </div>
@@ -695,7 +698,7 @@ var TYPES=["Relocate","Repair","Recycle","Dispose","Move to stores","Storage bin
 var ZONES={"Plant and production zones":["CGL -1","CGL -2","N2-H2 GAS PLANT","CGL ELECTRICAL","CGL ME","CCL","CRM","ARP","PICKLING","CRM QUALITY","CGL QUALITY","CCL QUALITY","LOGISTICS","UTILITY","CIVIL"],"Office and administrative zones":["MAIN OFFICE","HR DEPARTMENT","FINANCE DEPARTMENT","PROJECTS OFFICE"]};
 var CATS=["Hazardous waste","Non-hazardous waste","Recyclable","Metal scrap","Used oil / grease","Chemical","E-waste","Wood / packing","Plastic / rubber","Other"];
 var FREQS=["Daily","Weekly","Fortnightly","Monthly","Quarterly","Half-yearly","Yearly","One-time"];
-var LS="amns-redtags-v1",LSD="amns-disposal-v1",items=[],disp=[],lastId="",lastD="",typeF=-1;
+var LS="amns-redtags-v1",LSD="amns-disposal-v1",items=[],disp=[],lastId="",lastD="",typeF=-1,PAGE=50,showR=50,showD=50;
 var $=function(s){return document.querySelector(s)};
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function today(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
@@ -806,7 +809,7 @@ function render(){
     if(df&&r.dept!==df)return false;
     return !q||[r.tagNo,r.name,r.code,r.dept,r.area,r.by,r.sap].join(" ").toLowerCase().indexOf(q)>-1;
   }).sort(function(a,b){return (b.createdAt||0)-(a.createdAt||0)});
-  $("#tb").innerHTML=list.map(function(r){
+  $("#tb").innerHTML=list.slice(0,showR).map(function(r){
     var i=typeOf(r);
     return '<tr data-k="red" data-id="'+esc(r.id)+'" tabindex="0" title="Tap to view full details"'+(r.id===lastId?' class="new"':'')+'><td data-label="Tag no."><div><b>'+esc(r.tagNo)+'</b><small>'+esc(r.date)+'</small><small>By '+esc(r.by)+(r.sap?' (SAP '+esc(r.sap)+')':'')+'</small>'+(r.mail?'<small>'+esc(r.mail)+'</small>':'')+'</div></td>'
     +'<td data-label="Item"><div>'+esc(r.name)+'<small>Qty '+esc(r.qty)+(r.code?', code '+esc(r.code):'')+'</small>'+thumb(r)+'</div></td>'
@@ -815,6 +818,7 @@ function render(){
   }).join("");
   var e=$("#empty");e.hidden=list.length>0;
   e.textContent=total?"No tags match this search or filter.":"No red tags logged yet. Fill in the tag and choose Log red tag to add the first item.";
+  $("#more").hidden=list.length<=showR;$("#moreb").textContent="Show more ("+(list.length-showR)+" remaining)";
 }
 
 /* ---------- disposal data ---------- */
@@ -848,7 +852,7 @@ function drender(){
   setSr();
   var list=dfiltered();
   function td(l,v){return '<td data-label="'+l+'"><div>'+(esc(v)||"-")+'</div></td>'}
-  $("#dtb").innerHTML=list.map(function(r){
+  $("#dtb").innerHTML=list.slice(0,showD).map(function(r){
     return '<tr data-k="disp" data-id="'+esc(r.id)+'" tabindex="0" title="Tap to view full details"'+(r.id===lastD?' class="new"':'')+'>'
     +'<td data-label="Sr. No."><div><b>'+esc(r.srNo)+'</b>'+(r.date?'<small>'+esc(r.date)+'</small>':'')+'</div></td>'
     +td("Generation from",r.from)
@@ -861,6 +865,7 @@ function drender(){
   }).join("");
   var e=$("#dempty");e.hidden=list.length>0;
   e.textContent=total?"No entries match this search or filter.":"No disposal material registered yet. Fill in the form and choose Register disposal material.";
+  $("#dmore").hidden=list.length<=showD;$("#dmoreb").textContent="Show more ("+(list.length-showD)+" remaining)";
 }
 
 function csvCell(v){return '"'+String(v==null?"":v).replace(/"/g,'""')+'"'}
@@ -881,7 +886,7 @@ $("#f").addEventListener("submit",async function(ev){
   if(!(parseFloat(v.qty)>0))return msg("Enter the quantity tagged (more than 0).");
   if(!a)return msg("Select a classification for the item.");
   var sb=$("#f .btn");fx(sb,"loading");
-  var tagNo="RT-"+v.date.replace(/-/g,"")+"-"+Math.random().toString(36).slice(2,5).toUpperCase();
+  var tagNo="RT-"+v.date.replace(/-/g,"")+"-"+Date.now().toString(36).slice(-3).toUpperCase()+Math.random().toString(36).slice(2,4).toUpperCase();
   var r={id:tagNo,tagNo:tagNo,date:v.date,by:v.by,sap:v.sap,mail:v.mail,dept:v.dept,area:v.area,code:v.code,qty:v.qty,name:v.name,action:+a.value,actionText:ACTIONS[+a.value],tagType:TYPES[+a.value],comments:$("#cm").value.trim(),leader:$("#lead").value.trim(),status:"Open",closedOn:"",createdAt:Date.now()};
   if(photoData)r.photoUrl=photoData;
   try{lastId=tagNo;await put(r);msg("Logged "+tagNo+". Attach the red tag to the item.");burst();fx(sb,"done");
@@ -891,9 +896,11 @@ $("#f").addEventListener("submit",async function(ev){
 });
 $("#ph").addEventListener("change",async function(){var f=this.files[0];if(!f){clearPhoto();return}try{photoData=await shrink(f);$("#phv").src=photoData;$("#phv").hidden=false}catch(e){clearPhoto();msg(e.message)}});
 $("#rst").addEventListener("click",function(){setTimeout(function(){clearPhoto();$("#date").value=today();msg("")},0)});
-var qt;$("#q").addEventListener("input",function(){clearTimeout(qt);qt=setTimeout(render,200)});
-$("#df").addEventListener("change",render);
-$("#chips").addEventListener("click",function(ev){var b=ev.target.closest(".chip");if(!b)return;var t=+b.dataset.t;typeF=(t===typeF)?-1:t;render()});
+var qt;$("#q").addEventListener("input",function(){clearTimeout(qt);qt=setTimeout(function(){showR=PAGE;render()},200)});
+$("#df").addEventListener("change",function(){showR=PAGE;render()});
+$("#moreb").addEventListener("click",function(){showR+=PAGE;render()});
+$("#dmoreb").addEventListener("click",function(){showD+=PAGE;drender()});
+$("#chips").addEventListener("click",function(ev){var b=ev.target.closest(".chip");if(!b)return;var t=+b.dataset.t;typeF=(t===typeF)?-1:t;showR=PAGE;render()});
 $("#tb").addEventListener("click",async function(ev){
   var p=ev.target.closest("[data-ph]");
   if(p){p.disabled=true;p.textContent="Loading...";try{var j=await api({action:"photo",id:p.dataset.ph});photos[p.dataset.ph]=j.photoUrl||"";render()}catch(e){p.disabled=false;p.textContent="View photo";msg(e.message)}return}
@@ -916,8 +923,8 @@ $("#df2").addEventListener("submit",async function(ev){
   }catch(e){lastD="";fx(sb,"reset");dfail(e)}
 });
 $("#drst").addEventListener("click",function(){setTimeout(function(){dmsg("");setSr()},0)});
-var dqt;$("#dq").addEventListener("input",function(){clearTimeout(dqt);dqt=setTimeout(drender,200)});
-$("#dcf").addEventListener("change",drender);
+var dqt;$("#dq").addEventListener("input",function(){clearTimeout(dqt);dqt=setTimeout(function(){showD=PAGE;drender()},200)});
+$("#dcf").addEventListener("change",function(){showD=PAGE;drender()});
 $("#dcsv").addEventListener("click",downloadCsv);
 
 /* ---------- detail popup ---------- */
@@ -997,11 +1004,15 @@ function bump(sel,n,suf){var el=$(sel),from=+el.dataset.v||0;el.dataset.v=n;if(f
       if(s.y<-10)P[i]=mk(false);
       cx.fillStyle="rgba("+s.c+","+s.a+")";cx.beginPath();cx.arc(s.x,s.y,s.r*1.6,0,6.28);cx.fill();
     });
-    if(!still)requestAnimationFrame(loop);
+    if(!still&&!document.hidden&&inView)requestAnimationFrame(loop);else running=false;
   }
   size();for(var i=0;i<24;i++)P.push(mk(true));
   window.addEventListener("resize",size);
-  if(still){loop()}else requestAnimationFrame(loop);
+  var inView=true,running=false;
+  function kick(){if(!running&&!still){running=true;requestAnimationFrame(loop)}}
+  if(still){loop()}else kick();
+  if("IntersectionObserver" in window)new IntersectionObserver(function(es){inView=es[0].isIntersecting;$("#hero").classList.toggle("off",!inView);if(inView)kick()}).observe($("#hero"));
+  document.addEventListener("visibilitychange",function(){if(!document.hidden)kick()});
 })();
 /* celebration burst */
 function burst(){
@@ -1012,7 +1023,7 @@ function burst(){
   var t=0;(function f(){x.clearRect(0,0,c.width,c.height);t++;a.forEach(function(p){p.vy+=.35;p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;p.l-=.011;x.save();x.globalAlpha=Math.max(0,p.l);x.translate(p.x,p.y);x.rotate(p.r);x.fillStyle=p.c;x.fillRect(-p.s/2,-p.s/3,p.s,p.s*.6);x.restore()});if(t<110)requestAnimationFrame(f);else x.clearRect(0,0,c.width,c.height)})();
 }
 render();drender();
-if(API_URL){msg("Please wait, your data is loading...");dmsg("Please wait, your data is loading...");pull().then(function(){if($("#msg").textContent==="Please wait, your data is loading...")msg("");if($("#dmsg").textContent==="Please wait, your data is loading...")dmsg("")});setInterval(pull,30000)}
+if(API_URL){msg("Please wait, your data is loading...");dmsg("Please wait, your data is loading...");pull().then(function(){if($("#msg").textContent==="Please wait, your data is loading...")msg("");if($("#dmsg").textContent==="Please wait, your data is loading...")dmsg("")});setInterval(pull,180000);document.addEventListener("visibilitychange",function(){if(!document.hidden)pull()})}
 })();
 </script>
 </body>
